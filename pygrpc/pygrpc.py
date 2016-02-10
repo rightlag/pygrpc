@@ -50,12 +50,19 @@ class Client(object):
                 stubs.append(stub)
         self._stubs = stubs
 
-    def _request(self, request, serializer, timeout=DefaultTimeout, **kwargs):
+    def _request(self, request, timeout=DefaultTimeout, **kwargs):
         """An abstract method for issuing RPC requests."""
         if self._stubs:
             for stub in self._stubs:
                 group = stub._delegate._group
+                # Return a dictionary of serializer classes.
+                request_serializers = (
+                    stub._up.im_self._grpc_link._kernel._request_serializers
+                )
+                key = (stub._delegate._group, request)
                 try:
+                    serializer = request_serializers[key]
+                    serializer = serializer.im_class
                     # The cardinality of the RPC request.
                     _cardinality = stub._delegate._cardinalities[request]
                     # The cardinality specified in the decorator method.
@@ -69,7 +76,7 @@ class Client(object):
                         timeout = kwargs.pop('timeout')
                     res = obj.__call__(serializer(**kwargs), timeout)
                     return res
-                except AttributeError:
+                except (AttributeError, KeyError):
                     continue
                 finally:
                     # Destroy the thread associated with the stub.

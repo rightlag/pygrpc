@@ -1,4 +1,3 @@
-import helloworld_pb2
 import unittest
 
 from grpc.beta._stub import _AutoIntermediary
@@ -31,7 +30,6 @@ class HelloWorldTestCase(GRPCTestCase):
         for stub in self.client.stubs:
             self.assertTrue(isinstance(stub, _AutoIntermediary))
 
-    def test_say_hello_message_response(self):
-        res = self.client.unary_unary('SayHello', helloworld_pb2.HelloRequest,
-                                      name='you')
+    def test_say_hello_rpc_message_response(self):
+        res = self.client.unary_unary('SayHello', name='you')
         self.assertEqual(res.message, 'Hello, you!')
