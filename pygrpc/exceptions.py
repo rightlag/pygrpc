@@ -1,0 +1,2 @@
+class InvalidCardinalityError(Exception):
+    pass
