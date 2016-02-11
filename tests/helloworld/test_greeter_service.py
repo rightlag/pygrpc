@@ -2,6 +2,7 @@ import helloworld_pb2
 import unittest
 
 from tests import Loader
+from pygrpc.exceptions import InvalidCardinalityError
 
 
 class GreeterServiceTestCase(Loader):
@@ -23,6 +24,19 @@ class GreeterServiceTestCase(Loader):
         self.assertTrue(isinstance(res, helloworld_pb2.HelloReply))
         # Response message should read 'Hello, !'.
         self.assertEqual(res.message, 'Hello, !')
+
+    def test_exception_unary_unary(self):
+        with self.assertRaises(InvalidCardinalityError):
+            # The cardinality of the `SayHello' RPC request is
+            # 'UNARY_UNARY', therefore, any other cardinality method
+            # should raise an `InvalidCardinalityError`.
+            self._client.unary_stream('SayHello', name='you')
+            self._client.stream_unary('SayHello', name='you')
+            self._client.stream_stream('SayHello', name='you')
+
+    def test_exception_invalid_rpc(self):
+        with self.assertRaises(AttributeError):
+            self._client.unary_unary('SayGoodbye', name='you')
 
 if __name__ == '__main__':
     unittest.main()
