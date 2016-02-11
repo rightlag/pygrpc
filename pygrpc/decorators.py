@@ -1,7 +1,7 @@
 from functools import wraps
 
 
-def method(cardinality):
+def method(cardinality=None):
     """Decorator to ensure that the RPC call matches the proper
     cardinality type."""
     def wrapper(fn):
