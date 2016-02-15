@@ -38,5 +38,8 @@ class GreeterServiceTestCase(Loader):
         with self.assertRaises(AttributeError):
             self._client.unary_unary('SayGoodbye', name='you')
 
+    def tearDown(self):
+        del self._client
+
 if __name__ == '__main__':
     unittest.main()

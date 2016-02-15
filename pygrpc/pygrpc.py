@@ -54,7 +54,7 @@ class Client(object):
                 stubs.append(stub)
         self._stubs = stubs
 
-    def _request(self, request, timeout=DefaultTimeout, **kwargs):
+    def _request(self, request, *args, **kwargs):
         """An abstract method for issuing RPC requests."""
         if not self._stubs:
             # `_stubs` object is an empty list, therefore, return
@@ -73,18 +73,25 @@ class Client(object):
                 cardinality = kwargs.pop('cardinality')
                 if cardinality.name != _cardinality.name:
                     raise InvalidCardinalityError(cardinality.name)
-                if 'timeout' in kwargs:
-                    # Override the default `timeout` value if
-                    # specified when issuing the RPC request.
-                    timeout = kwargs.pop('timeout')
+                # Override the default `timeout` value if specified when
+                # issuing the RPC request.
+                timeout = kwargs.pop('timeout', self.DefaultTimeout)
                 key = (stub._delegate._group, request)
                 serializer = request_serializers[key]
                 # The serializer class definition that is to be
                 # instantiated when issuing the RPC request.
                 serializer = serializer.im_class
+                # The `request_or_request_iterator` object determines
+                # the type of argument to pass to the object call. It
+                # can either be a generator object or the initialized
+                # serializer class object.
+                if _cardinality.name in ('UNARY_UNARY', 'UNARY_STREAM'):
+                    request_or_request_iterator = serializer(**kwargs)
+                elif _cardinality.name in ('STREAM_UNARY', 'STREAM_STREAM'):
+                    request_or_request_iterator = args[0]
                 obj = getattr(stub, request)
-                res = obj.__call__(serializer(**kwargs), timeout)
-                return res
+                response = obj.__call__(request_or_request_iterator, timeout)
+                return response
             except (AttributeError, KeyError):
                 continue
         else:
