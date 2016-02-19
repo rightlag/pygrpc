@@ -54,7 +54,7 @@ class Client(object):
                 stubs.append(stub)
         self._stubs = stubs
 
-    def _request(self, request, timeout=DefaultTimeout, **kwargs):
+    def _request(self, request, *args, **kwargs):
         """An abstract method for issuing RPC requests."""
         if not self._stubs:
             # `_stubs` object is an empty list, therefore, return
@@ -66,6 +66,8 @@ class Client(object):
             request_serializers = (
                 stub._up.im_self._grpc_link._kernel._request_serializers
             )
+            # The request serializer key.
+            key = (stub._delegate._group, request)
             try:
                 # The cardinality of the RPC request.
                 _cardinality = stub._delegate._cardinalities[request]
@@ -73,18 +75,24 @@ class Client(object):
                 cardinality = kwargs.pop('cardinality')
                 if cardinality.name != _cardinality.name:
                     raise InvalidCardinalityError(cardinality.name)
-                if 'timeout' in kwargs:
-                    # Override the default `timeout` value if
-                    # specified when issuing the RPC request.
-                    timeout = kwargs.pop('timeout')
-                key = (stub._delegate._group, request)
-                serializer = request_serializers[key]
-                # The serializer class definition that is to be
-                # instantiated when issuing the RPC request.
-                serializer = serializer.im_class
+                # Override the default `timeout` value if specified when
+                # issuing the RPC request.
+                timeout = kwargs.pop('timeout', self.DefaultTimeout)
+                # The `request_or_request_iterator` object determines
+                # the type of argument to pass to the object call. It
+                # can either be a generator object or the initialized
+                # serializer class object.
+                if _cardinality.name in ('UNARY_UNARY', 'UNARY_STREAM'):
+                    serializer = request_serializers[key]
+                    # The serializer class definition that is to be
+                    # instantiated when issuing the RPC request.
+                    serializer = serializer.im_class
+                    request_or_request_iterator = serializer(**kwargs)
+                elif _cardinality.name in ('STREAM_UNARY', 'STREAM_STREAM'):
+                    request_or_request_iterator = args[0]
                 obj = getattr(stub, request)
-                res = obj.__call__(serializer(**kwargs), timeout)
-                return res
+                response = obj.__call__(request_or_request_iterator, timeout)
+                return response
             except (AttributeError, KeyError):
                 continue
         else:
@@ -99,8 +107,8 @@ class Client(object):
         using the stub and waits for a response to come back, just like
         a normal function call.
         """
-        res = self._request(*args, **kwargs)
-        return res
+        response = self._request(*args, **kwargs)
+        return response
 
     @method(cardinality=_cardinality.Cardinality.UNARY_STREAM)
     def unary_stream(self, *args, **kwargs):
@@ -108,8 +116,8 @@ class Client(object):
         the server and gets a stream to read a sequence of messages
         back.
         """
-        res = self._request(*args, **kwargs)
-        return res
+        response = self._request(*args, **kwargs)
+        return response
 
     @method(cardinality=_cardinality.Cardinality.STREAM_UNARY)
     def stream_unary(self, *args, **kwargs):
@@ -117,16 +125,16 @@ class Client(object):
         messages and sends them to the server, again using a provided
         stream.
         """
-        res = self._request(*args, **kwargs)
-        return res
+        response = self._request(*args, **kwargs)
+        return response
 
     @method(cardinality=_cardinality.Cardinality.STREAM_STREAM)
     def stream_stream(self, *args, **kwargs):
         """A bidirectionally-streaming RPC where both sides send a
         sequence of messages using a read-write stream.
         """
-        res = self._request(*args, **kwargs)
-        return res
+        response = self._request(*args, **kwargs)
+        return response
 
     def __str__(self):
         return '<{!s}>'.format(self.__class__.__name__)
