@@ -5,7 +5,6 @@ import time
 import unittest
 
 from tests import Loader
-from pygrpc.exceptions import InvalidCardinalityError
 
 
 class RouteGuideServiceTestCase(Loader):
@@ -14,7 +13,7 @@ class RouteGuideServiceTestCase(Loader):
     def setUp(self):
         super(RouteGuideServiceTestCase, self).setUp()
         module = '.route_guide_pb2'
-        self._client.load(module, package='tests.route_guide')
+        self.client.load(module, package='tests.route_guide')
 
     def generate_route(self, features):
         for _ in xrange(10):
@@ -47,8 +46,8 @@ class RouteGuideServiceTestCase(Loader):
         super(RouteGuideServiceTestCase, self).test_stub_context()
 
     def test_unary_unary(self):
-        res = self._client.unary_unary('GetFeature', latitude=409146138,
-                                       longitude=(-746188906))
+        res = self.client.request('GetFeature', latitude=409146138,
+                                  longitude=(-746188906))
         self.assertTrue(isinstance(res, route_guide_pb2.Feature))
         # Response message should contain a `Feature` object.
         self.assertEqual(res.name, 'Berkshire Valley Management Area Trail, Jefferson, NJ, USA')
@@ -64,8 +63,8 @@ class RouteGuideServiceTestCase(Loader):
                 latitude=420000000, longitude=(-730000000)
             ),
         }
-        responses = self._client.unary_stream('ListFeatures',
-                                              timeout=self._TIMEOUT, **params)
+        responses = self.client.request('ListFeatures', timeout=self._TIMEOUT,
+                                        **params)
         for response in responses:
             self.assertTrue(
                 (400000000 < response.location.latitude < 420000000)
@@ -78,32 +77,18 @@ class RouteGuideServiceTestCase(Loader):
     def test_stream_unary(self):
         feature_list = route_guide_resources.read_route_guide_database()
         route_iter = self.generate_route(feature_list)
-        res = self._client.stream_unary('RecordRoute', route_iter,
-                                        timeout=self._TIMEOUT)
+        res = self.client.request('RecordRoute', route_iter,
+                                  timeout=self._TIMEOUT)
         self.assertTrue(isinstance(res, route_guide_pb2.RouteSummary))
 
     def test_stream_stream(self):
-        responses = self._client.stream_stream('RouteChat',
-                                               self.generate_messages(),
-                                               timeout=self._TIMEOUT)
+        responses = self.client.request('RouteChat', self.generate_messages(),
+                                        timeout=self._TIMEOUT)
         for response in responses:
             self.assertTrue(isinstance(response, route_guide_pb2.RouteNote))
 
-    def test_exception_unary_unary(self):
-        with self.assertRaises(InvalidCardinalityError):
-            # The cardinality of the `GetFeature' RPC request is
-            # 'UNARY_UNARY', therefore, any other cardinality method
-            # should raise an `InvalidCardinalityError`.
-            coords = {
-                'latitude': 409146138,
-                'longitude': (-746188906),
-            }
-            self._client.unary_stream('GetFeature', **coords)
-            self._client.stream_unary('GetFeature', **coords)
-            self._client.stream_stream('GetFeature', **coords)
-
     def tearDown(self):
-        del self._client
+        del self.client
 
 if __name__ == '__main__':
     unittest.main()

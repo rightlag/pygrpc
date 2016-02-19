@@ -10,8 +10,8 @@ class Loader(unittest.TestCase):
     PORT = 50051
 
     def setUp(self):
-        self._client = Client(self.HOST, self.PORT)
+        self.client = Client(self.HOST, self.PORT)
 
     def test_stub_context(self):
-        for stub in self._client.stubs:
+        for stub in self.client.stubs:
             self.assertTrue(isinstance(stub, _AutoIntermediary))
