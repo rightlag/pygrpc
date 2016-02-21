@@ -2,9 +2,7 @@ import importlib
 import re
 
 from grpc.beta import implementations
-from grpc.framework.common import cardinality as _cardinality
-from decorators import method
-from exceptions import InvalidCardinalityError
+from grpc.framework.common.cardinality import Cardinality
 
 
 class Client(object):
@@ -54,7 +52,7 @@ class Client(object):
                 stubs.append(stub)
         self._stubs = stubs
 
-    def _request(self, request, *args, **kwargs):
+    def request(self, request, *args, **kwargs):
         """An abstract method for issuing RPC requests."""
         if not self._stubs:
             # `_stubs` object is an empty list, therefore, return
@@ -69,12 +67,6 @@ class Client(object):
             # The request serializer key.
             key = (stub._delegate._group, request)
             try:
-                # The cardinality of the RPC request.
-                _cardinality = stub._delegate._cardinalities[request]
-                # The cardinality specified in the decorator method.
-                cardinality = kwargs.pop('cardinality')
-                if cardinality.name != _cardinality.name:
-                    raise InvalidCardinalityError(cardinality.name)
                 # Override the default `timeout` value if specified when
                 # issuing the RPC request.
                 timeout = kwargs.pop('timeout', self.DefaultTimeout)
@@ -82,13 +74,16 @@ class Client(object):
                 # the type of argument to pass to the object call. It
                 # can either be a generator object or the initialized
                 # serializer class object.
-                if _cardinality.name in ('UNARY_UNARY', 'UNARY_STREAM'):
+                cardinality = stub._delegate._cardinalities[request]
+                if cardinality.name in (Cardinality.UNARY_UNARY.name,
+                                        Cardinality.UNARY_STREAM.name):
                     serializer = request_serializers[key]
                     # The serializer class definition that is to be
                     # instantiated when issuing the RPC request.
                     serializer = serializer.im_class
                     request_or_request_iterator = serializer(**kwargs)
-                elif _cardinality.name in ('STREAM_UNARY', 'STREAM_STREAM'):
+                elif cardinality.name in (Cardinality.STREAM_UNARY.name,
+                                          Cardinality.STREAM_STREAM.name):
                     request_or_request_iterator = args[0]
                 obj = getattr(stub, request)
                 response = obj.__call__(request_or_request_iterator, timeout)
@@ -100,41 +95,6 @@ class Client(object):
             # file, therefore, raise an `AttributeError`.
             raise AttributeError('{} object has no attribute "{}"!'
                                  .format(group, request))
-
-    @method(cardinality=_cardinality.Cardinality.UNARY_UNARY)
-    def unary_unary(self, *args, **kwargs):
-        """A simple RPC where the client sends a request to the server
-        using the stub and waits for a response to come back, just like
-        a normal function call.
-        """
-        response = self._request(*args, **kwargs)
-        return response
-
-    @method(cardinality=_cardinality.Cardinality.UNARY_STREAM)
-    def unary_stream(self, *args, **kwargs):
-        """A response-streaming RPC where the client sends a request to
-        the server and gets a stream to read a sequence of messages
-        back.
-        """
-        response = self._request(*args, **kwargs)
-        return response
-
-    @method(cardinality=_cardinality.Cardinality.STREAM_UNARY)
-    def stream_unary(self, *args, **kwargs):
-        """A request-streaming RPC where the client writes a sequence of
-        messages and sends them to the server, again using a provided
-        stream.
-        """
-        response = self._request(*args, **kwargs)
-        return response
-
-    @method(cardinality=_cardinality.Cardinality.STREAM_STREAM)
-    def stream_stream(self, *args, **kwargs):
-        """A bidirectionally-streaming RPC where both sides send a
-        sequence of messages using a read-write stream.
-        """
-        response = self._request(*args, **kwargs)
-        return response
 
     def __str__(self):
         return '<{!s}>'.format(self.__class__.__name__)
