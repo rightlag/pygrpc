@@ -1,6 +1,6 @@
 # pygrpc
 
-pygrpc 0.1.0
+pygrpc 0.2.0
 
 Released: Feb-10-2015
 
@@ -37,21 +37,26 @@ from pygrpc import Client
 client = Client('localhost', 50051)
 # This loads the generated Google Protocol Buffer module.
 client.load('helloworld_pb2')
-response = client.unary_unary('SayHello', name='you')
+response = client.request('SayHello', name='you')
 print "Greeter client received: " + response.message
 ```
 
-Both examples would output: `Hello, you!`.
+Both examples would output: `Greeter client received: Hello, you!`.
 
-### Differences
+# Differences
 
-I tried to make `pygrpc` as simple as possible. Instead of having to specify the request serializer class as one of the arguments when issuing a RPC, it automatically determines it for you. The `unary_unary` method in the example above states the [cardinality](http://www.grpc.io/docs/tutorials/basic/python.html#defining-the-service) of the request.
+The `pygrpc` client only requires the `request` method to be called for issuing gRPC requests.
 
-| Method                        | Cardinality   | Description                                                                                                                  |
-|-------------------------------|---------------|------------------------------------------------------------------------------------------------------------------------------|
-| simple RPC                    | UNARY_UNARY   | client sends a request to the server using the stub and waits for a response to come back, just like a normal function call. |
-| response-streaming RPC        | UNARY_STREAM  | client sends a request to the server and gets a stream to read a sequence of messages back.                                  |
-| request-streaming RPC         | STREAM_UNARY  | client writes a sequence of messages and sends them to the server, again using a provided stream.                            |
-| bidirectionally-streaming RPC | STREAM_STREAM | both sides send a sequence of messages using a read-write stream.                                                            |
+### pygrpc.Client
 
-The purpose of defining separate methods to issue RPCs is to enforce proper cardinality. For example, if in the event you attempt to issue a `response-streaming` RPC when the client expects a `simple RPC`, then an `InvalidCardinalityError` exception is raised. This forces the developer to ensure proper cardinality when issuing RPCs.
+`client.request(request, *args, **kwargs)`
+
+Return a simple RPC response or a streaming RPC response. This is known as the [cardinality](https://github.com/grpc/grpc/blob/master/src/python/grpcio/grpc/framework/common/cardinality.py) of the gRPC request/response.
+
+**Type:** `str`
+
+**Parameters:** **request** - the name of the RPC request defined in the `.proto` file.
+
+**Return type:** Reply object defined in the `.proto` file.
+
+**Returns:** Either a simple RPC response or a streaming RPC response.
